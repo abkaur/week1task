@@ -1,46 +1,27 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE = 'abkaur95/simple-web-app' // Docker Hub image name
-        GIT_REPO = 'https://github.com/abkaur/python-web-application.git' // GitHub repository URL
-    }
-
     stages {
-        stage('Clean Workspace') {
+        stage('Checkout Code') {
             steps {
-                cleanWs()
-            }
-        }
-        stage('Clone Repository') {
-            steps {
-                withCredentials([string(credentialsId: 'github-access-token', variable: 'GITHUB_TOKEN')]) {
-                    sh 'git clone https://${GITHUB_TOKEN}@github.com/abkaur/python-web-application.git'
-                }
+                git url: 'https://github.com/abkaur/week1task.git', credentialsId: 'github-credentials'
             }
         }
         stage('Build Docker Image') {
             steps {
-                dir('python-web-application') {
-                    sh 'docker build -t ${DOCKER_IMAGE}:latest .'
+                script {
+                    dockerImage = docker.build("abkaur95/week2task:latest")
                 }
             }
         }
-        stage('Push Docker Image to Docker Hub') {
+        stage('Push to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                  usernameVariable: 'DOCKER_USERNAME', 
-                                                  passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+                        dockerImage.push()
+                    }
                 }
-                sh 'docker push ${DOCKER_IMAGE}:latest'
             }
-        }
-    }
-
-    post {
-        always {
-            sh 'docker rmi ${DOCKER_IMAGE}:latest || true'
         }
     }
 }
